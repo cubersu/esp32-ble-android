@@ -18,14 +18,21 @@ class BleProtocolTest {
 
     @Test
     fun `isPong gecerli pong yanitinda true doner`() {
-        val response = JSONObject().apply { put("cmd", "pong") }.toString()
+        val response = JSONObject().apply { put("status", "ok"); put("data", "pong") }.toString()
 
         assertTrue(BleProtocol.isPong(response))
     }
 
     @Test
     fun `isPong pong olmayan yanitta false doner`() {
-        val response = JSONObject().apply { put("cmd", "status") }.toString()
+        val response = JSONObject().apply { put("status", "ok"); put("data", "something_else") }.toString()
+
+        assertFalse(BleProtocol.isPong(response))
+    }
+
+    @Test
+    fun `isPong error statuslu yanitta false doner`() {
+        val response = JSONObject().apply { put("status", "error"); put("msg", "unknown command") }.toString()
 
         assertFalse(BleProtocol.isPong(response))
     }

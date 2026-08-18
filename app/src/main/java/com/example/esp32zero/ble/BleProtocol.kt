@@ -6,8 +6,9 @@ import org.json.JSONObject
 /**
  * ESP32 ile konuşulan JSON komut/yanıt protokolünün saf Kotlin kısmı.
  * Android BLE framework'üne bağımlı değildir, bu yüzden gerçek org.json ile
- * doğrudan unit test edilebilir. Alan adları placeholder'dır; ESP32 firmware'i
- * yazıldığında protokole göre güncellenmelidir.
+ * doğrudan unit test edilebilir. Alan adları esp32-multitool deposundaki
+ * command_protocol.h ile birebir eşleşir: yanıtlar {"status":..,"data"/"msg":..}
+ * biçiminde gelir, komut adı yanıtta tekrarlanmaz.
  */
 object BleProtocol {
 
@@ -19,12 +20,14 @@ object BleProtocol {
 
     /**
      * Gelen yanıtın "pong" olup olmadığını kontrol eder.
-     * Bozuk/JSON olmayan girdilerde exception fırlatmak yerine false döner,
-     * böylece hatalı BLE verisi uygulamayı çökertmez.
+     * ESP32 ping yanıtına {"status":"ok","data":"pong"} döner; "cmd" alanı
+     * yanıtta bulunmaz. Bozuk/JSON olmayan girdilerde exception fırlatmak
+     * yerine false döner, böylece hatalı BLE verisi uygulamayı çökertmez.
      */
     fun isPong(responseJson: String): Boolean =
         try {
-            JSONObject(responseJson).optString("cmd") == "pong"
+            val json = JSONObject(responseJson)
+            json.optString("status") == "ok" && json.optString("data") == "pong"
         } catch (e: JSONException) {
             false
         }
