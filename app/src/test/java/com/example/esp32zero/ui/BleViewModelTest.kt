@@ -143,6 +143,20 @@ class BleViewModelTest {
     }
 
     @Test
+    fun `frekans secilince sub-ghz yakala secilen frekansi kullanir`() = runTest {
+        fakeBleManager.deviceFound = true
+        viewModel.onScanAndConnectClicked()
+
+        viewModel.onFrequencySelected(868_000_000L)
+        viewModel.onCaptureSubGhzClicked()
+
+        assertEquals(
+            BleProtocol.buildSubGhzCaptureCommand(frequencyHz = 868_000_000L),
+            fakeBleManager.lastSentCommand,
+        )
+    }
+
+    @Test
     fun `gelen subghz_capture yaniti sinyal listesinin basina eklenir`() = runTest {
         fakeBleManager.emitResponse(
             """{"status":"ok","data":{"type":"subghz_capture","frequency_hz":433920000,"pulses_b64":"AQIDBA=="}}""",

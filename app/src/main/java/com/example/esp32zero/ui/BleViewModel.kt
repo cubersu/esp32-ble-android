@@ -48,6 +48,10 @@ class BleViewModel(private val bleManager: BleManager) : ViewModel() {
     private val _capturedSignals = MutableStateFlow<List<SubGhzSignal>>(emptyList())
     val capturedSignals: StateFlow<List<SubGhzSignal>> = _capturedSignals.asStateFlow()
 
+    // Bir sonraki "Sub-GHz Yakala" komutunda kullanılacak frekans.
+    private val _selectedFrequencyHz = MutableStateFlow(BleProtocol.DEFAULT_SUBGHZ_FREQUENCY_HZ)
+    val selectedFrequencyHz: StateFlow<Long> = _selectedFrequencyHz.asStateFlow()
+
     init {
         viewModelScope.launch {
             bleManager.observeResponses().collect { json ->
@@ -117,11 +121,17 @@ class BleViewModel(private val bleManager: BleManager) : ViewModel() {
         }
     }
 
+    fun onFrequencySelected(frequencyHz: Long) {
+        _selectedFrequencyHz.value = frequencyHz
+    }
+
     fun onCaptureSubGhzClicked() {
         if (connectionState.value != BleConnectionState.CONNECTED) return
         viewModelScope.launch {
             try {
-                bleManager.sendCommand(BleProtocol.buildSubGhzCaptureCommand())
+                bleManager.sendCommand(
+                    BleProtocol.buildSubGhzCaptureCommand(frequencyHz = _selectedFrequencyHz.value),
+                )
             } catch (e: Exception) {
                 _errorMessage.value = e.message ?: "Sub-GHz yakalama başlatılamadı"
             }

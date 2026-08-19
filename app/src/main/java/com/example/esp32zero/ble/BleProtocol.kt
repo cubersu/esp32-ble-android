@@ -32,22 +32,36 @@ object BleProtocol {
             put("cmd", "ble_scan")
         }.toString()
 
-    /** Bir Sub-GHz sinyali yakalamak için "subghz_capture" komutu oluşturur. */
-    fun buildSubGhzCaptureCommand(timeoutMs: Long = 15_000L): String =
+    /** ESP32'nin desteklediği en yaygın Sub-GHz ISM/SRD frekansları (Hz). */
+    val COMMON_SUBGHZ_FREQUENCIES_HZ: List<Long> = listOf(315_000_000L, 433_920_000L, 868_000_000L, 915_000_000L)
+
+    const val DEFAULT_SUBGHZ_FREQUENCY_HZ: Long = 433_920_000L
+
+    /**
+     * Belirtilen frekansta (Hz) bir Sub-GHz sinyali yakalamak için
+     * "subghz_capture" komutu oluşturur.
+     */
+    fun buildSubGhzCaptureCommand(
+        frequencyHz: Long = DEFAULT_SUBGHZ_FREQUENCY_HZ,
+        timeoutMs: Long = 15_000L,
+    ): String =
         JSONObject().apply {
             put("cmd", "subghz_capture")
+            put("frequency_hz", frequencyHz)
             put("timeout_ms", timeoutMs)
         }.toString()
 
     /**
      * Daha önce yakalanmış (veya kullanıcı tarafından saklanmış) bir
      * sinyali ESP32 üzerinden tekrar göndermek (replay) için "subghz_replay"
-     * komutu oluşturur.
+     * komutu oluşturur. Sinyalin yakalandığı frekansı (signal.frequencyHz)
+     * kullanır, böylece replay her zaman doğru frekansta yapılır.
      */
     fun buildSubGhzReplayCommand(signal: SubGhzSignal): String =
         JSONObject().apply {
             put("cmd", "subghz_replay")
             put("pulses_b64", signal.pulsesBase64)
+            put("frequency_hz", signal.frequencyHz)
         }.toString()
 
     /**

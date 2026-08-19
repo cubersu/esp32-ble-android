@@ -113,23 +113,32 @@ class BleProtocolTest {
     }
 
     @Test
-    fun `buildSubGhzCaptureCommand gecerli json cmd ve timeout icerir`() {
-        val json = BleProtocol.buildSubGhzCaptureCommand(timeoutMs = 20_000L)
+    fun `buildSubGhzCaptureCommand gecerli json cmd frekans ve timeout icerir`() {
+        val json = BleProtocol.buildSubGhzCaptureCommand(frequencyHz = 868_000_000L, timeoutMs = 20_000L)
 
         val parsed = JSONObject(json)
         assertEquals("subghz_capture", parsed.getString("cmd"))
+        assertEquals(868_000_000L, parsed.getLong("frequency_hz"))
         assertEquals(20_000L, parsed.getLong("timeout_ms"))
     }
 
     @Test
-    fun `buildSubGhzReplayCommand sinyalin pulses_b64 alanini tasir`() {
-        val signal = SubGhzSignal(pulsesBase64 = "AQIDBA==", frequencyHz = 433920000L)
+    fun `buildSubGhzCaptureCommand varsayilan frekans 433_92MHz'dir`() {
+        val json = BleProtocol.buildSubGhzCaptureCommand()
+
+        assertEquals(433_920_000L, JSONObject(json).getLong("frequency_hz"))
+    }
+
+    @Test
+    fun `buildSubGhzReplayCommand sinyalin pulses_b64 ve frekansini tasir`() {
+        val signal = SubGhzSignal(pulsesBase64 = "AQIDBA==", frequencyHz = 868_000_000L)
 
         val json = BleProtocol.buildSubGhzReplayCommand(signal)
 
         val parsed = JSONObject(json)
         assertEquals("subghz_replay", parsed.getString("cmd"))
         assertEquals("AQIDBA==", parsed.getString("pulses_b64"))
+        assertEquals(868_000_000L, parsed.getLong("frequency_hz"))
     }
 
     @Test
