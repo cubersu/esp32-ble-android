@@ -4,8 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.esp32zero.ble.BleConnectionState
 import com.example.esp32zero.ble.BleConstants
+import com.example.esp32zero.ble.BleDeviceInfo
 import com.example.esp32zero.ble.BleManager
 import com.example.esp32zero.ble.BleProtocol
+import com.example.esp32zero.ble.WifiNetwork
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -34,12 +36,25 @@ class BleViewModel(private val bleManager: BleManager) : ViewModel() {
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
+    private val _wifiNetworks = MutableStateFlow<List<WifiNetwork>>(emptyList())
+    val wifiNetworks: StateFlow<List<WifiNetwork>> = _wifiNetworks.asStateFlow()
+
+    private val _bleDevices = MutableStateFlow<List<BleDeviceInfo>>(emptyList())
+    val bleDevices: StateFlow<List<BleDeviceInfo>> = _bleDevices.asStateFlow()
+
     init {
         viewModelScope.launch {
             bleManager.observeResponses().collect { json ->
                 // Yeni yanıtlar log'un başına eklenir (en yeni üstte gösterilir).
                 _responseLog.update { current ->
                     listOf(ResponseLogEntry(json, BleProtocol.isPong(json), System.currentTimeMillis())) + current
+                }
+
+                BleProtocol.parseWifiScanResponse(json)?.let { networks ->
+                    _wifiNetworks.value = networks
+                }
+                BleProtocol.parseBleScanResponse(json)?.let { devices ->
+                    _bleDevices.value = devices
                 }
             }
         }
@@ -67,6 +82,28 @@ class BleViewModel(private val bleManager: BleManager) : ViewModel() {
                 bleManager.sendCommand(BleProtocol.buildPingCommand())
             } catch (e: Exception) {
                 _errorMessage.value = e.message ?: "Komut gönderilemedi"
+            }
+        }
+    }
+
+    fun onScanWifiClicked() {
+        if (connectionState.value != BleConnectionState.CONNECTED) return
+        viewModelScope.launch {
+            try {
+                bleManager.sendCommand(BleProtocol.buildWifiScanCommand())
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "Wi-Fi taraması başlatılamadı"
+            }
+        }
+    }
+
+    fun onScanBleDevicesClicked() {
+        if (connectionState.value != BleConnectionState.CONNECTED) return
+        viewModelScope.launch {
+            try {
+                bleManager.sendCommand(BleProtocol.buildBleScanCommand())
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "BLE taraması başlatılamadı"
             }
         }
     }

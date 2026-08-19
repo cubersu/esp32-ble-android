@@ -6,7 +6,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
@@ -44,6 +46,8 @@ fun BleScreen(modifier: Modifier = Modifier) {
     val connectionState by viewModel.connectionState.collectAsStateWithLifecycle()
     val responseLog by viewModel.responseLog.collectAsStateWithLifecycle()
     val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
+    val wifiNetworks by viewModel.wifiNetworks.collectAsStateWithLifecycle()
+    val bleDevices by viewModel.bleDevices.collectAsStateWithLifecycle()
 
     var permissionsGranted by remember { mutableStateOf(PermissionUtils.hasAllBlePermissions(context)) }
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -86,13 +90,63 @@ fun BleScreen(modifier: Modifier = Modifier) {
                 Text("Ping Gönder")
             }
 
+            Button(
+                onClick = { viewModel.onScanWifiClicked() },
+                enabled = connectionState == BleConnectionState.CONNECTED,
+            ) {
+                Text("Wi-Fi Tara")
+            }
+
+            Button(
+                onClick = { viewModel.onScanBleDevicesClicked() },
+                enabled = connectionState == BleConnectionState.CONNECTED,
+            ) {
+                Text("BLE Tara")
+            }
+
             errorMessage?.let { message ->
                 Text(text = message, color = MaterialTheme.colorScheme.error)
             }
 
+            if (wifiNetworks.isNotEmpty()) {
+                Text(text = "Wi-Fi Ağları", style = MaterialTheme.typography.titleSmall)
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 180.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(wifiNetworks) { network ->
+                        Card {
+                            Text(
+                                text = "${network.ssid}  (${network.rssi} dBm)" +
+                                    if (network.secure) "  🔒" else "",
+                                modifier = Modifier.padding(8.dp),
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (bleDevices.isNotEmpty()) {
+                Text(text = "BLE Cihazları", style = MaterialTheme.typography.titleSmall)
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 180.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(bleDevices) { device ->
+                        Card {
+                            val label = device.name.ifBlank { "(isimsiz cihaz)" }
+                            Text(
+                                text = "$label — ${device.address}  (${device.rssi} dBm)",
+                                modifier = Modifier.padding(8.dp),
+                            )
+                        }
+                    }
+                }
+            }
+
             Text(text = "Yanıtlar", style = MaterialTheme.typography.titleSmall)
             LazyColumn(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().weight(1f),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 items(responseLog) { entry ->

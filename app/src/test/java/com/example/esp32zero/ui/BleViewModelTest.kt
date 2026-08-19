@@ -68,7 +68,7 @@ class BleViewModelTest {
 
     @Test
     fun `gelen pong yaniti log a isaretli sekilde eklenir`() = runTest {
-        fakeBleManager.emitResponse("""{"cmd":"pong"}""")
+        fakeBleManager.emitResponse("""{"status":"ok","data":"pong"}""")
 
         val entry = viewModel.responseLog.value.single()
         assertTrue(entry.isPong)
@@ -76,9 +76,58 @@ class BleViewModelTest {
 
     @Test
     fun `pong olmayan yanit log a isaretsiz eklenir`() = runTest {
-        fakeBleManager.emitResponse("""{"cmd":"status"}""")
+        fakeBleManager.emitResponse("""{"status":"error","msg":"unknown command"}""")
 
         val entry = viewModel.responseLog.value.single()
         assertTrue(!entry.isPong)
+    }
+
+    @Test
+    fun `baglantidayken wifi tara tiklaninca wifi_scan komutu yazilir`() = runTest {
+        fakeBleManager.deviceFound = true
+        viewModel.onScanAndConnectClicked()
+
+        viewModel.onScanWifiClicked()
+
+        assertEquals(BleProtocol.buildWifiScanCommand(), fakeBleManager.lastSentCommand)
+    }
+
+    @Test
+    fun `bagli degilken wifi tara komutu gonderilmez`() = runTest {
+        viewModel.onScanWifiClicked()
+
+        assertNull(fakeBleManager.lastSentCommand)
+    }
+
+    @Test
+    fun `gelen wifi_scan yaniti ag listesini gunceller`() = runTest {
+        fakeBleManager.emitResponse(
+            """{"status":"ok","data":{"type":"wifi_scan","networks":[{"ssid":"EvAgi","rssi":-45,"secure":true}]}}""",
+        )
+
+        val networks = viewModel.wifiNetworks.value
+        assertEquals(1, networks.size)
+        assertEquals("EvAgi", networks.single().ssid)
+    }
+
+    @Test
+    fun `baglantidayken ble tara tiklaninca ble_scan komutu yazilir`() = runTest {
+        fakeBleManager.deviceFound = true
+        viewModel.onScanAndConnectClicked()
+
+        viewModel.onScanBleDevicesClicked()
+
+        assertEquals(BleProtocol.buildBleScanCommand(), fakeBleManager.lastSentCommand)
+    }
+
+    @Test
+    fun `gelen ble_scan yaniti cihaz listesini gunceller`() = runTest {
+        fakeBleManager.emitResponse(
+            """{"status":"ok","data":{"type":"ble_scan","devices":[{"name":"Kulaklik","address":"AA:BB:CC:DD:EE:FF","rssi":-60}]}}""",
+        )
+
+        val devices = viewModel.bleDevices.value
+        assertEquals(1, devices.size)
+        assertEquals("Kulaklik", devices.single().name)
     }
 }
