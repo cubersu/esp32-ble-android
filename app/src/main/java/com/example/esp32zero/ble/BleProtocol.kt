@@ -32,8 +32,14 @@ object BleProtocol {
             put("cmd", "ble_scan")
         }.toString()
 
+    // 868/915MHz kasıtlı olarak listede değil: kullanıcının fiziksel CC1101
+    // modülü "433MHz" için satılan, tek banda göre anten eşleştirilmiş bir
+    // modül — çip firmware ile o frekanslara "kilitlenebilir" ama modülün
+    // eşleştirme devresi/SAW filtresi onlara göre değil, pratikte menzil/
+    // hassasiyet neredeyse sıfıra iner. Farklı (çok bantlı ya da 868/915'e
+    // özel) bir modül alınırsa buraya geri eklenebilir.
     /** ESP32'nin desteklediği en yaygın Sub-GHz ISM/SRD frekansları (Hz). */
-    val COMMON_SUBGHZ_FREQUENCIES_HZ: List<Long> = listOf(315_000_000L, 433_920_000L, 868_000_000L, 915_000_000L)
+    val COMMON_SUBGHZ_FREQUENCIES_HZ: List<Long> = listOf(315_000_000L, 433_920_000L)
 
     const val DEFAULT_SUBGHZ_FREQUENCY_HZ: Long = 433_920_000L
 
