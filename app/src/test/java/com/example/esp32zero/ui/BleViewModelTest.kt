@@ -186,4 +186,31 @@ class BleViewModelTest {
 
         assertNull(fakeBleManager.lastSentCommand)
     }
+
+    @Test
+    fun `baglantidayken oled metni gonderilince oled_text komutu yazilir`() = runTest {
+        fakeBleManager.deviceFound = true
+        viewModel.onScanAndConnectClicked()
+
+        viewModel.onSendOledTextClicked("Merhaba")
+
+        assertEquals(BleProtocol.buildOledTextCommand("Merhaba"), fakeBleManager.lastSentCommand)
+    }
+
+    @Test
+    fun `bagli degilken oled metni gonderilmez`() = runTest {
+        viewModel.onSendOledTextClicked("Merhaba")
+
+        assertNull(fakeBleManager.lastSentCommand)
+    }
+
+    @Test
+    fun `bos oled metni gonderilmez`() = runTest {
+        fakeBleManager.deviceFound = true
+        viewModel.onScanAndConnectClicked()
+
+        viewModel.onSendOledTextClicked("   ")
+
+        assertNull(fakeBleManager.lastSentCommand)
+    }
 }

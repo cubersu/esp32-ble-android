@@ -149,6 +149,18 @@ class BleViewModel(private val bleManager: BleManager) : ViewModel() {
         }
     }
 
+    fun onSendOledTextClicked(text: String) {
+        if (connectionState.value != BleConnectionState.CONNECTED) return
+        if (text.isBlank()) return
+        viewModelScope.launch {
+            try {
+                bleManager.sendCommand(BleProtocol.buildOledTextCommand(text))
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "Ekrana gönderilemedi"
+            }
+        }
+    }
+
     override fun onCleared() {
         bleManager.disconnect()
     }
