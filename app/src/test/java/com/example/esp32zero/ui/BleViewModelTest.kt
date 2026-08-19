@@ -3,6 +3,7 @@ package com.example.esp32zero.ui
 import com.example.esp32zero.ble.BleConnectionState
 import com.example.esp32zero.ble.BleProtocol
 import com.example.esp32zero.ble.FakeBleManager
+import com.example.esp32zero.ble.SubGhzSignal
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -129,5 +130,46 @@ class BleViewModelTest {
         val devices = viewModel.bleDevices.value
         assertEquals(1, devices.size)
         assertEquals("Kulaklik", devices.single().name)
+    }
+
+    @Test
+    fun `baglantidayken sub-ghz yakala tiklaninca subghz_capture komutu yazilir`() = runTest {
+        fakeBleManager.deviceFound = true
+        viewModel.onScanAndConnectClicked()
+
+        viewModel.onCaptureSubGhzClicked()
+
+        assertEquals(BleProtocol.buildSubGhzCaptureCommand(), fakeBleManager.lastSentCommand)
+    }
+
+    @Test
+    fun `gelen subghz_capture yaniti sinyal listesinin basina eklenir`() = runTest {
+        fakeBleManager.emitResponse(
+            """{"status":"ok","data":{"type":"subghz_capture","frequency_hz":433920000,"pulses_b64":"AQIDBA=="}}""",
+        )
+
+        val signals = viewModel.capturedSignals.value
+        assertEquals(1, signals.size)
+        assertEquals("AQIDBA==", signals.single().pulsesBase64)
+    }
+
+    @Test
+    fun `sinyal gonder tiklaninca subghz_replay komutu ilgili sinyalle yazilir`() = runTest {
+        fakeBleManager.deviceFound = true
+        viewModel.onScanAndConnectClicked()
+        val signal = SubGhzSignal(pulsesBase64 = "AQIDBA==", frequencyHz = 433920000L)
+
+        viewModel.onReplaySignalClicked(signal)
+
+        assertEquals(BleProtocol.buildSubGhzReplayCommand(signal), fakeBleManager.lastSentCommand)
+    }
+
+    @Test
+    fun `bagli degilken sinyal gonderilmez`() = runTest {
+        val signal = SubGhzSignal(pulsesBase64 = "AQIDBA==", frequencyHz = 433920000L)
+
+        viewModel.onReplaySignalClicked(signal)
+
+        assertNull(fakeBleManager.lastSentCommand)
     }
 }

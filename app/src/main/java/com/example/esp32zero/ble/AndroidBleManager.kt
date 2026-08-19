@@ -143,7 +143,9 @@ class AndroidBleManager(private val context: Context) : BleManager {
     private val gattCallback = object : BluetoothGattCallback() {
         override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
             when (newState) {
-                BluetoothProfile.STATE_CONNECTED -> gatt.discoverServices()
+                // Servis keşfinden önce daha büyük bir MTU talep ediyoruz;
+                // asıl discoverServices() çağrısı onMtuChanged()'e taşındı.
+                BluetoothProfile.STATE_CONNECTED -> gatt.requestMtu(BleConstants.REQUESTED_MTU)
                 BluetoothProfile.STATE_DISCONNECTED -> {
                     _connectionState.value = BleConnectionState.DISCONNECTED
                     connectContinuation?.let {
@@ -152,6 +154,14 @@ class AndroidBleManager(private val context: Context) : BleManager {
                     connectContinuation = null
                 }
             }
+        }
+
+        override fun onMtuChanged(gatt: BluetoothGatt, mtu: Int, status: Int) {
+            // MTU pazarlığı başarısız olsa (status != GATT_SUCCESS) bile
+            // servis keşfine devam ediyoruz; GATT varsayılan (23 byte)
+            // MTU ile de çalışır, sadece büyük yükler (örn. Sub-GHz
+            // yakalama) tek bildirimde sığmayabilir.
+            gatt.discoverServices()
         }
 
         override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {

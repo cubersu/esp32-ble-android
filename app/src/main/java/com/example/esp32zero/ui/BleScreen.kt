@@ -29,6 +29,15 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.esp32zero.ble.BleConnectionState
 import com.example.esp32zero.ble.PermissionUtils
+import com.example.esp32zero.ble.SubGhzSignal
+import java.text.SimpleDateFormat
+import java.util.Locale
+
+private val subGhzTimeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+
+/** Yakalanan bir Sub-GHz sinyalini listede gösterilecek kısa etikete çevirir. */
+private fun SubGhzSignal.toDisplayLabel(): String =
+    "${subGhzTimeFormat.format(capturedAtMillis)} — ${frequencyHz / 1_000_000} MHz"
 
 /** Bağlantı durumunu kullanıcıya Türkçe olarak gösteren etiket. */
 private fun BleConnectionState.toDisplayLabel(): String = when (this) {
@@ -48,6 +57,7 @@ fun BleScreen(modifier: Modifier = Modifier) {
     val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
     val wifiNetworks by viewModel.wifiNetworks.collectAsStateWithLifecycle()
     val bleDevices by viewModel.bleDevices.collectAsStateWithLifecycle()
+    val capturedSignals by viewModel.capturedSignals.collectAsStateWithLifecycle()
 
     var permissionsGranted by remember { mutableStateOf(PermissionUtils.hasAllBlePermissions(context)) }
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -104,6 +114,13 @@ fun BleScreen(modifier: Modifier = Modifier) {
                 Text("BLE Tara")
             }
 
+            Button(
+                onClick = { viewModel.onCaptureSubGhzClicked() },
+                enabled = connectionState == BleConnectionState.CONNECTED,
+            ) {
+                Text("Sub-GHz Yakala")
+            }
+
             errorMessage?.let { message ->
                 Text(text = message, color = MaterialTheme.colorScheme.error)
             }
@@ -139,6 +156,31 @@ fun BleScreen(modifier: Modifier = Modifier) {
                                 text = "$label — ${device.address}  (${device.rssi} dBm)",
                                 modifier = Modifier.padding(8.dp),
                             )
+                        }
+                    }
+                }
+            }
+
+            if (capturedSignals.isNotEmpty()) {
+                Text(text = "Yakalanan Sinyaller", style = MaterialTheme.typography.titleSmall)
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 180.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(capturedSignals) { signal ->
+                        Card {
+                            Column(
+                                modifier = Modifier.padding(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                Text(text = signal.toDisplayLabel())
+                                Button(
+                                    onClick = { viewModel.onReplaySignalClicked(signal) },
+                                    enabled = connectionState == BleConnectionState.CONNECTED,
+                                ) {
+                                    Text("Gönder")
+                                }
+                            }
                         }
                     }
                 }

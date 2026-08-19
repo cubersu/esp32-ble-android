@@ -32,6 +32,24 @@ object BleProtocol {
             put("cmd", "ble_scan")
         }.toString()
 
+    /** Bir Sub-GHz sinyali yakalamak için "subghz_capture" komutu oluşturur. */
+    fun buildSubGhzCaptureCommand(timeoutMs: Long = 15_000L): String =
+        JSONObject().apply {
+            put("cmd", "subghz_capture")
+            put("timeout_ms", timeoutMs)
+        }.toString()
+
+    /**
+     * Daha önce yakalanmış (veya kullanıcı tarafından saklanmış) bir
+     * sinyali ESP32 üzerinden tekrar göndermek (replay) için "subghz_replay"
+     * komutu oluşturur.
+     */
+    fun buildSubGhzReplayCommand(signal: SubGhzSignal): String =
+        JSONObject().apply {
+            put("cmd", "subghz_replay")
+            put("pulses_b64", signal.pulsesBase64)
+        }.toString()
+
     /**
      * Gelen yanıtın "pong" olup olmadığını kontrol eder.
      * ESP32 ping yanıtına {"status":"ok","data":"pong"} döner; "cmd" alanı
@@ -85,6 +103,26 @@ object BleProtocol {
                         rssi = device.optInt("rssi"),
                     )
                 }
+            }
+        } catch (e: JSONException) {
+            null
+        }
+
+    /**
+     * Yanıt bir "subghz_capture" sonucuysa yakalanan sinyali döner, değilse
+     * (farklı bir yanıt türü, bozuk JSON ya da boş "pulses_b64") null döner.
+     */
+    fun parseSubGhzCaptureResponse(responseJson: String): SubGhzSignal? =
+        try {
+            val data = responseJson.dataObjectOfType("subghz_capture")
+            val pulsesBase64 = data?.optString("pulses_b64")
+            if (pulsesBase64.isNullOrEmpty()) {
+                null
+            } else {
+                SubGhzSignal(
+                    pulsesBase64 = pulsesBase64,
+                    frequencyHz = data.optLong("frequency_hz"),
+                )
             }
         } catch (e: JSONException) {
             null

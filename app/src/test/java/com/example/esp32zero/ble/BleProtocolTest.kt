@@ -111,4 +111,57 @@ class BleProtocolTest {
 
         assertNull(BleProtocol.parseBleScanResponse(response))
     }
+
+    @Test
+    fun `buildSubGhzCaptureCommand gecerli json cmd ve timeout icerir`() {
+        val json = BleProtocol.buildSubGhzCaptureCommand(timeoutMs = 20_000L)
+
+        val parsed = JSONObject(json)
+        assertEquals("subghz_capture", parsed.getString("cmd"))
+        assertEquals(20_000L, parsed.getLong("timeout_ms"))
+    }
+
+    @Test
+    fun `buildSubGhzReplayCommand sinyalin pulses_b64 alanini tasir`() {
+        val signal = SubGhzSignal(pulsesBase64 = "AQIDBA==", frequencyHz = 433920000L)
+
+        val json = BleProtocol.buildSubGhzReplayCommand(signal)
+
+        val parsed = JSONObject(json)
+        assertEquals("subghz_replay", parsed.getString("cmd"))
+        assertEquals("AQIDBA==", parsed.getString("pulses_b64"))
+    }
+
+    @Test
+    fun `parseSubGhzCaptureResponse gecerli yanitta sinyali doner`() {
+        val response = """
+            {"status":"ok","data":{"type":"subghz_capture","frequency_hz":433920000,"pulses_b64":"AQIDBA=="}}
+        """.trimIndent()
+
+        val signal = BleProtocol.parseSubGhzCaptureResponse(response)
+
+        assertEquals("AQIDBA==", signal?.pulsesBase64)
+        assertEquals(433920000L, signal?.frequencyHz)
+    }
+
+    @Test
+    fun `parseSubGhzCaptureResponse bos pulses_b64 icin null doner`() {
+        val response = """{"status":"ok","data":{"type":"subghz_capture","frequency_hz":433920000,"pulses_b64":""}}"""
+
+        assertNull(BleProtocol.parseSubGhzCaptureResponse(response))
+    }
+
+    @Test
+    fun `parseSubGhzCaptureResponse wifi_scan yanitinda null doner`() {
+        val response = """{"status":"ok","data":{"type":"wifi_scan","networks":[]}}"""
+
+        assertNull(BleProtocol.parseSubGhzCaptureResponse(response))
+    }
+
+    @Test
+    fun `parseSubGhzCaptureResponse error statuslu yanitta null doner`() {
+        val response = """{"status":"error","msg":"no signal captured"}"""
+
+        assertNull(BleProtocol.parseSubGhzCaptureResponse(response))
+    }
 }

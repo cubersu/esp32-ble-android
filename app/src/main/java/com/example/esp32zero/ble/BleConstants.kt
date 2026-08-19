@@ -25,4 +25,10 @@ object BleConstants {
 
     // Cihaz bulunamazsa taramayı sonlandırmak için zaman aşımı süresi.
     const val SCAN_TIMEOUT_MS: Long = 10_000L
+
+    // Bağlantı kurulunca talep edilen BLE paket boyutu (MTU). Varsayılan
+    // 23 byte, büyük yanıtlar (örn. Sub-GHz ham sinyal verisi) için
+    // yetersiz. Telefon/ESP32 bunu kabul etmeyebilir; o durumda GATT
+    // varsayılana düşer, sadece büyük yükler tek bildirimde sığmayabilir.
+    const val REQUESTED_MTU: Int = 517
 }
