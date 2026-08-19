@@ -71,6 +71,19 @@ object BleProtocol {
         }.toString()
 
     /**
+     * ESP32'ye bağlı OLED ekranda (varsa) serbest bir metin göstermek için
+     * "oled_text" komutu oluşturur. ESP32 tarafında OLED şu an yalnızca
+     * durum ekranı modundaysa (ENABLE_OLED_STATUS) gösterilir; tam menü
+     * modunda (ENABLE_LOCAL_CONTROLS) ya da OLED hiç aktif değilken komut
+     * sessizce yok sayılır.
+     */
+    fun buildOledTextCommand(text: String): String =
+        JSONObject().apply {
+            put("cmd", "oled_text")
+            put("text", text)
+        }.toString()
+
+    /**
      * Gelen yanıtın "pong" olup olmadığını kontrol eder.
      * ESP32 ping yanıtına {"status":"ok","data":"pong"} döner; "cmd" alanı
      * yanıtta bulunmaz. Bozuk/JSON olmayan girdilerde exception fırlatmak

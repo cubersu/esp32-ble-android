@@ -74,6 +74,7 @@ fun BleScreen(modifier: Modifier = Modifier) {
     val selectedFrequencyHz by viewModel.selectedFrequencyHz.collectAsStateWithLifecycle()
 
     var customFrequencyMhzText by remember { mutableStateOf("") }
+    var oledTextInput by remember { mutableStateOf("") }
     var permissionsGranted by remember { mutableStateOf(PermissionUtils.hasAllBlePermissions(context)) }
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions(),
@@ -176,6 +177,28 @@ fun BleScreen(modifier: Modifier = Modifier) {
                 enabled = connectionState == BleConnectionState.CONNECTED,
             ) {
                 Text("Sub-GHz Yakala")
+            }
+
+            Text(text = "OLED Ekrana Yaz", style = MaterialTheme.typography.titleSmall)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedTextField(
+                    value = oledTextInput,
+                    onValueChange = { oledTextInput = it },
+                    label = { Text("Mesaj") },
+                    modifier = Modifier.weight(1f),
+                )
+                Button(
+                    onClick = {
+                        viewModel.onSendOledTextClicked(oledTextInput)
+                        oledTextInput = ""
+                    },
+                    enabled = connectionState == BleConnectionState.CONNECTED && oledTextInput.isNotBlank(),
+                ) {
+                    Text("Gönder")
+                }
             }
 
             errorMessage?.let { message ->

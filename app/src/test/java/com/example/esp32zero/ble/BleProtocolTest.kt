@@ -173,4 +173,13 @@ class BleProtocolTest {
 
         assertNull(BleProtocol.parseSubGhzCaptureResponse(response))
     }
+
+    @Test
+    fun `buildOledTextCommand gecerli json cmd ve text alani icerir`() {
+        val json = BleProtocol.buildOledTextCommand("Merhaba")
+
+        val parsed = JSONObject(json)
+        assertEquals("oled_text", parsed.getString("cmd"))
+        assertEquals("Merhaba", parsed.getString("text"))
+    }
 }
