@@ -4,19 +4,19 @@ import java.util.UUID
 
 /**
  * ESP32 GATT sunucusuyla eşleşmesi gereken sabitler.
- * SERVICE_UUID / COMMAND / RESPONSE karakteristik UUID'leri şu an placeholder'dır,
- * ESP32 firmware'i yazıldığında bu değerler elle güncellenmelidir.
+ * SERVICE_UUID / COMMAND / RESPONSE karakteristik UUID'leri esp32-multitool
+ * deposundaki include/ble_uuids.h ile birebir aynı olmalıdır.
  */
 object BleConstants {
 
-    // Placeholder: ESP32 tarafındaki gerçek servis UUID'si ile değiştirilecek.
-    val SERVICE_UUID: UUID = UUID.fromString("0000ff00-0000-1000-8000-00805f9b34fb")
+    // esp32-multitool/include/ble_uuids.h -> BLE_SERVICE_UUID ile eşleşir.
+    val SERVICE_UUID: UUID = UUID.fromString("1eac5c68-6cfd-46ca-b9dc-0d8dd2ade33f")
 
-    // Placeholder: telefon -> ESP32 komut yazımı için kullanılan karakteristik.
-    val COMMAND_CHARACTERISTIC_UUID: UUID = UUID.fromString("0000ff01-0000-1000-8000-00805f9b34fb")
+    // esp32-multitool/include/ble_uuids.h -> BLE_COMMAND_CHAR_UUID ile eşleşir.
+    val COMMAND_CHARACTERISTIC_UUID: UUID = UUID.fromString("b10a8537-f7ed-46d1-801c-735e3c74ea5e")
 
-    // Placeholder: ESP32 -> telefon yanıt/notify karakteristiği.
-    val RESPONSE_CHARACTERISTIC_UUID: UUID = UUID.fromString("0000ff02-0000-1000-8000-00805f9b34fb")
+    // esp32-multitool/include/ble_uuids.h -> BLE_RESPONSE_CHAR_UUID ile eşleşir.
+    val RESPONSE_CHARACTERISTIC_UUID: UUID = UUID.fromString("f24e04f4-aec8-420c-9162-98efd1cd5fbf")
 
     // Standart Client Characteristic Configuration Descriptor (CCCD) UUID'si.
     // Bu, BLE spesifikasyonunda sabittir; placeholder değildir.
@@ -25,4 +25,10 @@ object BleConstants {
 
     // Cihaz bulunamazsa taramayı sonlandırmak için zaman aşımı süresi.
     const val SCAN_TIMEOUT_MS: Long = 10_000L
+
+    // Bağlantı kurulunca talep edilen BLE paket boyutu (MTU). Varsayılan
+    // 23 byte, büyük yanıtlar (örn. Sub-GHz ham sinyal verisi) için
+    // yetersiz. Telefon/ESP32 bunu kabul etmeyebilir; o durumda GATT
+    // varsayılana düşer, sadece büyük yükler tek bildirimde sığmayabilir.
+    const val REQUESTED_MTU: Int = 517
 }
