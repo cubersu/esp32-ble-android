@@ -8,7 +8,10 @@ import com.example.esp32zero.ble.BleDeviceInfo
 import com.example.esp32zero.ble.BleManager
 import com.example.esp32zero.ble.BleProtocol
 import com.example.esp32zero.ble.SubGhzSignal
+import com.example.esp32zero.ble.WifiCapture
+import com.example.esp32zero.ble.WifiCaptureChunk
 import com.example.esp32zero.ble.WifiNetwork
+import java.util.Base64
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -52,6 +55,18 @@ class BleViewModel(private val bleManager: BleManager) : ViewModel() {
     private val _selectedFrequencyHz = MutableStateFlow(BleProtocol.DEFAULT_SUBGHZ_FREQUENCY_HZ)
     val selectedFrequencyHz: StateFlow<Long> = _selectedFrequencyHz.asStateFlow()
 
+    // Yakalanan Wi-Fi paketleri (PCAP, en yeni başta). Şu an yalnızca
+    // bellekte tutuluyor; kalıcı saklama Faz 7'nin kapsamında.
+    private val _wifiCaptures = MutableStateFlow<List<WifiCapture>>(emptyList())
+    val wifiCaptures: StateFlow<List<WifiCapture>> = _wifiCaptures.asStateFlow()
+
+    // "wifi_capture_chunk" bildirimlerini capture_id'ye göre yeniden
+    // birleştirmek için tutulan geçici durum. ESP32 tek seferde tek bir
+    // yakalama gönderdiği için pratikte tek bir giriş oluyor; yine de
+    // capture_id'ye göre anahtarlanarak olası bir çakışma (örn. eski bir
+    // yakalamanın geç gelen son parçası) yanlış tamponla karışmaz.
+    private val chunkBuffers = mutableMapOf<Long, MutableMap<Int, String>>()
+
     init {
         viewModelScope.launch {
             bleManager.observeResponses().collect { json ->
@@ -69,7 +84,32 @@ class BleViewModel(private val bleManager: BleManager) : ViewModel() {
                 BleProtocol.parseSubGhzCaptureResponse(json)?.let { signal ->
                     _capturedSignals.update { current -> listOf(signal) + current }
                 }
+                BleProtocol.parseWifiCaptureChunk(json)?.let { chunk ->
+                    handleWifiCaptureChunk(chunk)
+                }
             }
+        }
+    }
+
+    private fun handleWifiCaptureChunk(chunk: WifiCaptureChunk) {
+        val buffer = chunkBuffers.getOrPut(chunk.captureId) { mutableMapOf() }
+        buffer[chunk.seq] = chunk.chunkBase64
+
+        if (buffer.size < chunk.total) return
+
+        // Tüm parçalar geldi: seq sırasına göre birleştirip base64'ü çöz.
+        val fullBase64 = (0 until chunk.total).joinToString(separator = "") { seq -> buffer[seq].orEmpty() }
+        chunkBuffers.remove(chunk.captureId)
+
+        val pcapBytes = try {
+            Base64.getDecoder().decode(fullBase64)
+        } catch (e: IllegalArgumentException) {
+            _errorMessage.value = "Yakalanan Wi-Fi verisi bozuk geldi"
+            return
+        }
+
+        _wifiCaptures.update { current ->
+            listOf(WifiCapture(pcapBytes = pcapBytes, packetCount = chunk.packetCount)) + current
         }
     }
 
@@ -145,6 +185,17 @@ class BleViewModel(private val bleManager: BleManager) : ViewModel() {
                 bleManager.sendCommand(BleProtocol.buildSubGhzReplayCommand(signal))
             } catch (e: Exception) {
                 _errorMessage.value = e.message ?: "Sinyal gönderilemedi"
+            }
+        }
+    }
+
+    fun onCaptureWifiClicked(channel: Int) {
+        if (connectionState.value != BleConnectionState.CONNECTED) return
+        viewModelScope.launch {
+            try {
+                bleManager.sendCommand(BleProtocol.buildWifiCaptureCommand(channel))
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "Wi-Fi paket yakalama başlatılamadı"
             }
         }
     }

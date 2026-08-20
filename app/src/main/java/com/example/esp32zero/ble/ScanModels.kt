@@ -25,3 +25,42 @@ data class SubGhzSignal(
     val frequencyHz: Long,
     val capturedAtMillis: Long = System.currentTimeMillis(),
 )
+
+/**
+ * ESP32'nin "wifi_capture" yanıtından (parçalı bildirimler birleştirilerek)
+ * elde edilen tam PCAP dosyası. SADECE KENDİ AĞINI TEST ETMEK İÇİN —
+ * bkz. esp32-multitool deposundaki wifi_sniffer.h üstündeki yasal/etik not.
+ */
+data class WifiCapture(
+    val pcapBytes: ByteArray,
+    val packetCount: Int,
+    val capturedAtMillis: Long = System.currentTimeMillis(),
+) {
+    // ByteArray, Kotlin'in ürettiği varsayılan equals/hashCode'da içerik
+    // yerine referans karşılaştırır; data class'ın bunu elle geçersiz
+    // kılması gerekiyor (lint/derleyici uyarısı bu yüzden bastırılmadı,
+    // gerçekten kasıtlı).
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is WifiCapture) return false
+        return pcapBytes.contentEquals(other.pcapBytes) &&
+            packetCount == other.packetCount &&
+            capturedAtMillis == other.capturedAtMillis
+    }
+
+    override fun hashCode(): Int {
+        var result = pcapBytes.contentHashCode()
+        result = 31 * result + packetCount
+        result = 31 * result + capturedAtMillis.hashCode()
+        return result
+    }
+}
+
+/** BleProtocol.parseWifiCaptureChunk()'ın döndürdüğü, ham bir "wifi_capture_chunk" parçası. */
+data class WifiCaptureChunk(
+    val captureId: Long,
+    val seq: Int,
+    val total: Int,
+    val packetCount: Int,
+    val chunkBase64: String,
+)

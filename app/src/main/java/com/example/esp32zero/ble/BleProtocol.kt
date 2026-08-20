@@ -71,6 +71,19 @@ object BleProtocol {
         }.toString()
 
     /**
+     * Belirtilen Wi-Fi kanalında (1-13) WPA/WPA2 el sıkışma (EAPOL)
+     * paketlerini yakalamak için "wifi_capture" komutu oluşturur. SADECE
+     * KENDİ AĞINI TEST ETMEK İÇİN — bkz. esp32-multitool deposundaki
+     * wifi_sniffer.h üstündeki yasal/etik not.
+     */
+    fun buildWifiCaptureCommand(channel: Int, timeoutMs: Long = 15_000L): String =
+        JSONObject().apply {
+            put("cmd", "wifi_capture")
+            put("channel", channel)
+            put("timeout_ms", timeoutMs)
+        }.toString()
+
+    /**
      * ESP32'ye bağlı OLED ekranda (varsa) serbest bir metin göstermek için
      * "oled_text" komutu oluşturur. ESP32 tarafında OLED şu an yalnızca
      * durum ekranı modundaysa (ENABLE_OLED_STATUS) gösterilir; tam menü
@@ -155,6 +168,28 @@ object BleProtocol {
                 SubGhzSignal(
                     pulsesBase64 = pulsesBase64,
                     frequencyHz = data.optLong("frequency_hz"),
+                )
+            }
+        } catch (e: JSONException) {
+            null
+        }
+
+    /**
+     * Yanıt bir "wifi_capture_chunk" parçasıysa ham parçayı döner (henüz
+     * birleştirilmemiş), değilse null döner. Birleştirme/yeniden derleme
+     * mantığı burada değil, BleViewModel'de — bu fonksiyon durumsuz (stateless)
+     * kalmalı, aksi halde gerçek org.json ile doğrudan test edilemez.
+     */
+    fun parseWifiCaptureChunk(responseJson: String): WifiCaptureChunk? =
+        try {
+            val data = responseJson.dataObjectOfType("wifi_capture_chunk")
+            data?.let {
+                WifiCaptureChunk(
+                    captureId = it.optLong("capture_id"),
+                    seq = it.optInt("seq"),
+                    total = it.optInt("total"),
+                    packetCount = it.optInt("packet_count"),
+                    chunkBase64 = it.optString("chunk_b64"),
                 )
             }
         } catch (e: JSONException) {

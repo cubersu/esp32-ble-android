@@ -182,4 +182,49 @@ class BleProtocolTest {
         assertEquals("oled_text", parsed.getString("cmd"))
         assertEquals("Merhaba", parsed.getString("text"))
     }
+
+    @Test
+    fun `buildWifiCaptureCommand gecerli json cmd kanal ve timeout icerir`() {
+        val json = BleProtocol.buildWifiCaptureCommand(channel = 6, timeoutMs = 10_000L)
+
+        val parsed = JSONObject(json)
+        assertEquals("wifi_capture", parsed.getString("cmd"))
+        assertEquals(6, parsed.getInt("channel"))
+        assertEquals(10_000L, parsed.getLong("timeout_ms"))
+    }
+
+    @Test
+    fun `buildWifiCaptureCommand varsayilan timeout 15sn'dir`() {
+        val json = BleProtocol.buildWifiCaptureCommand(channel = 1)
+
+        assertEquals(15_000L, JSONObject(json).getLong("timeout_ms"))
+    }
+
+    @Test
+    fun `parseWifiCaptureChunk gecerli yanitta parcayi doner`() {
+        val response = """
+            {"status":"ok","data":{"type":"wifi_capture_chunk","capture_id":12345,"seq":1,"total":3,
+                "packet_count":4,"chunk_b64":"AQIDBA=="}}
+        """.trimIndent()
+
+        val chunk = BleProtocol.parseWifiCaptureChunk(response)
+
+        assertEquals(12345L, chunk?.captureId)
+        assertEquals(1, chunk?.seq)
+        assertEquals(3, chunk?.total)
+        assertEquals(4, chunk?.packetCount)
+        assertEquals("AQIDBA==", chunk?.chunkBase64)
+    }
+
+    @Test
+    fun `parseWifiCaptureChunk wifi_scan yanitinda null doner`() {
+        val response = """{"status":"ok","data":{"type":"wifi_scan","networks":[]}}"""
+
+        assertNull(BleProtocol.parseWifiCaptureChunk(response))
+    }
+
+    @Test
+    fun `parseWifiCaptureChunk bozuk json girdisinde null doner`() {
+        assertNull(BleProtocol.parseWifiCaptureChunk("bu gecerli bir json degil"))
+    }
 }
