@@ -275,4 +275,52 @@ class BleViewModelTest {
         assertTrue(viewModel.wifiCaptures.value.isEmpty())
         assertEquals("Yakalanan Wi-Fi verisi bozuk geldi", viewModel.errorMessage.value)
     }
+
+    @Test
+    fun `baglantidayken gecerli bssid ile deauth gonderilince wifi_deauth komutu yazilir`() = runTest {
+        fakeBleManager.deviceFound = true
+        viewModel.onScanAndConnectClicked()
+
+        viewModel.onSendDeauthClicked(bssid = "AA:BB:CC:DD:EE:FF", clientMac = "", channel = 6)
+
+        assertEquals(
+            BleProtocol.buildWifiDeauthCommand(bssid = "AA:BB:CC:DD:EE:FF", channel = 6),
+            fakeBleManager.lastSentCommand,
+        )
+    }
+
+    @Test
+    fun `deauth istemci mac verilince onu kullanir`() = runTest {
+        fakeBleManager.deviceFound = true
+        viewModel.onScanAndConnectClicked()
+
+        viewModel.onSendDeauthClicked(bssid = "AA:BB:CC:DD:EE:FF", clientMac = "11:22:33:44:55:66", channel = 1)
+
+        assertEquals(
+            BleProtocol.buildWifiDeauthCommand(
+                bssid = "AA:BB:CC:DD:EE:FF",
+                channel = 1,
+                clientMac = "11:22:33:44:55:66",
+            ),
+            fakeBleManager.lastSentCommand,
+        )
+    }
+
+    @Test
+    fun `gecersiz bssid ile deauth komutu gonderilmez ve hata yazilir`() = runTest {
+        fakeBleManager.deviceFound = true
+        viewModel.onScanAndConnectClicked()
+
+        viewModel.onSendDeauthClicked(bssid = "gecersiz", clientMac = "", channel = 1)
+
+        assertNull(fakeBleManager.lastSentCommand)
+        assertEquals("Geçersiz MAC adresi (AA:BB:CC:DD:EE:FF biçiminde olmalı)", viewModel.errorMessage.value)
+    }
+
+    @Test
+    fun `bagli degilken deauth komutu gonderilmez`() = runTest {
+        viewModel.onSendDeauthClicked(bssid = "AA:BB:CC:DD:EE:FF", clientMac = "", channel = 1)
+
+        assertNull(fakeBleManager.lastSentCommand)
+    }
 }
