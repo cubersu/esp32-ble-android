@@ -213,4 +213,66 @@ class BleViewModelTest {
 
         assertNull(fakeBleManager.lastSentCommand)
     }
+
+    @Test
+    fun `baglantidayken wifi paket yakala tiklaninca wifi_capture komutu yazilir`() = runTest {
+        fakeBleManager.deviceFound = true
+        viewModel.onScanAndConnectClicked()
+
+        viewModel.onCaptureWifiClicked(6)
+
+        assertEquals(BleProtocol.buildWifiCaptureCommand(6), fakeBleManager.lastSentCommand)
+    }
+
+    @Test
+    fun `bagli degilken wifi paket yakala komutu gonderilmez`() = runTest {
+        viewModel.onCaptureWifiClicked(6)
+
+        assertNull(fakeBleManager.lastSentCommand)
+    }
+
+    @Test
+    fun `tek parcali wifi_capture_chunk yaniti dogrudan yakalama listesine eklenir`() = runTest {
+        // "AQI=" base64 -> [0x01, 0x02]
+        fakeBleManager.emitResponse(
+            """{"status":"ok","data":{"type":"wifi_capture_chunk","capture_id":1,"seq":0,"total":1,
+                "packet_count":2,"chunk_b64":"AQI="}}""",
+        )
+
+        val captures = viewModel.wifiCaptures.value
+        assertEquals(1, captures.size)
+        assertEquals(2, captures.single().packetCount)
+        assertTrue(captures.single().pcapBytes.contentEquals(byteArrayOf(0x01, 0x02)))
+    }
+
+    @Test
+    fun `coklu parcali wifi_capture_chunk yanitlari sira ile birlestirilir`() = runTest {
+        // Tam base64 "AQIDBA==" ([0x01,0x02,0x03,0x04]) iki parcaya bolunuyor: "AQI" + "DBA=="
+        fakeBleManager.emitResponse(
+            """{"status":"ok","data":{"type":"wifi_capture_chunk","capture_id":42,"seq":0,"total":2,
+                "packet_count":4,"chunk_b64":"AQI"}}""",
+        )
+        assertTrue(viewModel.wifiCaptures.value.isEmpty())
+
+        fakeBleManager.emitResponse(
+            """{"status":"ok","data":{"type":"wifi_capture_chunk","capture_id":42,"seq":1,"total":2,
+                "packet_count":4,"chunk_b64":"DBA=="}}""",
+        )
+
+        val captures = viewModel.wifiCaptures.value
+        assertEquals(1, captures.size)
+        assertEquals(4, captures.single().packetCount)
+        assertTrue(captures.single().pcapBytes.contentEquals(byteArrayOf(0x01, 0x02, 0x03, 0x04)))
+    }
+
+    @Test
+    fun `bozuk base64 iceren wifi_capture_chunk hata mesaji yazar ve listeye eklenmez`() = runTest {
+        fakeBleManager.emitResponse(
+            """{"status":"ok","data":{"type":"wifi_capture_chunk","capture_id":7,"seq":0,"total":1,
+                "packet_count":1,"chunk_b64":"bu gecerli bir base64 degil ??"}}""",
+        )
+
+        assertTrue(viewModel.wifiCaptures.value.isEmpty())
+        assertEquals("Yakalanan Wi-Fi verisi bozuk geldi", viewModel.errorMessage.value)
+    }
 }

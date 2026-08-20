@@ -36,10 +36,13 @@ import com.example.esp32zero.ble.BleConnectionState
 import com.example.esp32zero.ble.BleProtocol
 import com.example.esp32zero.ble.PermissionUtils
 import com.example.esp32zero.ble.SubGhzSignal
+import com.example.esp32zero.ble.WifiCapture
+import com.example.esp32zero.ble.WifiCaptureExporter
 import java.text.SimpleDateFormat
 import java.util.Locale
 
 private val subGhzTimeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+private val wifiCaptureTimeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
 
 /** Hz cinsinden bir frekansı "433.92 MHz" gibi okunabilir bir etikete çevirir. */
 private fun Long.toMhzLabel(): String {
@@ -50,6 +53,10 @@ private fun Long.toMhzLabel(): String {
 /** Yakalanan bir Sub-GHz sinyalini listede gösterilecek kısa etikete çevirir. */
 private fun SubGhzSignal.toDisplayLabel(): String =
     "${subGhzTimeFormat.format(capturedAtMillis)} — ${frequencyHz.toMhzLabel()}"
+
+/** Yakalanan bir Wi-Fi paket setini listede gösterilecek kısa etikete çevirir. */
+private fun WifiCapture.toDisplayLabel(): String =
+    "${wifiCaptureTimeFormat.format(capturedAtMillis)} — $packetCount paket"
 
 /** Bağlantı durumunu kullanıcıya Türkçe olarak gösteren etiket. */
 private fun BleConnectionState.toDisplayLabel(): String = when (this) {
@@ -71,9 +78,11 @@ fun BleScreen(modifier: Modifier = Modifier) {
     val bleDevices by viewModel.bleDevices.collectAsStateWithLifecycle()
     val capturedSignals by viewModel.capturedSignals.collectAsStateWithLifecycle()
     val selectedFrequencyHz by viewModel.selectedFrequencyHz.collectAsStateWithLifecycle()
+    val wifiCaptures by viewModel.wifiCaptures.collectAsStateWithLifecycle()
 
     var customFrequencyMhzText by remember { mutableStateOf("") }
     var oledTextInput by remember { mutableStateOf("") }
+    var selectedWifiChannel by remember { mutableStateOf(1) }
     var permissionsGranted by remember { mutableStateOf(PermissionUtils.hasAllBlePermissions(context)) }
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions(),
@@ -178,6 +187,34 @@ fun BleScreen(modifier: Modifier = Modifier) {
                 Text("Sub-GHz Yakala")
             }
 
+            Text(
+                text = "Wi-Fi Kanalı: $selectedWifiChannel",
+                style = MaterialTheme.typography.titleSmall,
+            )
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                (1..13).forEach { channel ->
+                    Button(
+                        onClick = { selectedWifiChannel = channel },
+                        colors = if (channel == selectedWifiChannel) {
+                            ButtonDefaults.buttonColors()
+                        } else {
+                            ButtonDefaults.outlinedButtonColors()
+                        },
+                    ) {
+                        Text("$channel")
+                    }
+                }
+            }
+            Button(
+                onClick = { viewModel.onCaptureWifiClicked(selectedWifiChannel) },
+                enabled = connectionState == BleConnectionState.CONNECTED,
+            ) {
+                Text("Wi-Fi Paket Yakala")
+            }
+
             Text(text = "OLED Ekrana Yaz", style = MaterialTheme.typography.titleSmall)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -258,6 +295,32 @@ fun BleScreen(modifier: Modifier = Modifier) {
                                     enabled = connectionState == BleConnectionState.CONNECTED,
                                 ) {
                                     Text("Gönder")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (wifiCaptures.isNotEmpty()) {
+                Text(text = "Yakalanan Wi-Fi Paketleri", style = MaterialTheme.typography.titleSmall)
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 180.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(wifiCaptures) { capture ->
+                        Card {
+                            Column(
+                                modifier = Modifier.padding(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                Text(text = capture.toDisplayLabel())
+                                Button(
+                                    onClick = {
+                                        context.startActivity(WifiCaptureExporter.buildShareIntent(context, capture))
+                                    },
+                                ) {
+                                    Text("PCAP Paylaş")
                                 }
                             }
                         }
