@@ -66,6 +66,9 @@ fun BleApp(modifier: Modifier = Modifier) {
             composable(AppDestination.SUB_GHZ.route) { SubGhzScreen(viewModel) }
             composable(AppDestination.WIFI_CAPTURE.route) { WifiCaptureScreen(viewModel) }
             composable(AppDestination.DEAUTH.route) { DeauthScreen(viewModel) }
+            composable(AppDestination.ROGUE_AP_SCAN.route) { RogueApScanScreen(viewModel) }
+            composable(AppDestination.WPS_CHECK.route) { WpsCheckScreen(viewModel) }
+            composable(AppDestination.NET_SCAN.route) { NetScanScreen(viewModel) }
             composable(AppDestination.OLED_TEXT.route) { OledTextScreen(viewModel) }
             composable(AppDestination.RESPONSE_LOG.route) { ResponseLogScreen(viewModel) }
         }

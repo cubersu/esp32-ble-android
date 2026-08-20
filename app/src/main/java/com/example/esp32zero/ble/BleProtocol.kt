@@ -1,5 +1,6 @@
 package com.example.esp32zero.ble
 
+import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
 
@@ -221,6 +222,127 @@ object BleProtocol {
                     total = it.optInt("total"),
                     packetCount = it.optInt("packet_count"),
                     chunkBase64 = it.optString("chunk_b64"),
+                )
+            }
+        } catch (e: JSONException) {
+            null
+        }
+
+    /**
+     * Verilen SSID'yi yayınlayan tüm erişim noktalarını listelemek için
+     * "rogue_ap_scan" komutu oluşturur. knownBssid boş bırakılırsa yalnızca
+     * bulunanlar listelenir; verilirse ona eşleşmeyen her BSSID "şüpheli"
+     * (olası sahte AP/evil twin) işaretlenir. Tamamen pasif bir tarama.
+     */
+    fun buildRogueApScanCommand(ssid: String, knownBssid: String = ""): String =
+        JSONObject().apply {
+            put("cmd", "rogue_ap_scan")
+            put("ssid", ssid)
+            if (knownBssid.isNotBlank()) {
+                put("known_bssid", knownBssid)
+            }
+        }.toString()
+
+    /**
+     * Yanıt bir "rogue_ap_scan" sonucuysa döner, değilse null döner.
+     */
+    fun parseRogueApScanResponse(responseJson: String): RogueApScanResult? =
+        try {
+            val data = responseJson.dataObjectOfType("rogue_ap_scan")
+            data?.let {
+                val accessPoints = it.optJSONArray("access_points")?.let { array ->
+                    (0 until array.length()).map { index ->
+                        val ap = array.getJSONObject(index)
+                        RogueApEntry(
+                            bssid = ap.optString("bssid"),
+                            rssi = ap.optInt("rssi"),
+                            secure = ap.optBoolean("secure"),
+                            isKnown = ap.optBoolean("is_known"),
+                        )
+                    }
+                } ?: emptyList()
+                RogueApScanResult(
+                    ssid = it.optString("ssid"),
+                    accessPoints = accessPoints,
+                    suspicious = it.optBoolean("suspicious"),
+                )
+            }
+        } catch (e: JSONException) {
+            null
+        }
+
+    /**
+     * Belirtilen BSSID'nin belirtilen kanaldaki beacon'ında WPS'in açık
+     * olup olmadığını pasif olarak kontrol etmek için "wps_check" komutu
+     * oluşturur. Bu bir PIN kaba kuvvet komutu DEĞİL — bkz. esp32-multitool
+     * deposundaki wps_check.h üstündeki kapsam notu.
+     */
+    fun buildWpsCheckCommand(bssid: String, channel: Int, timeoutMs: Long = 10_000L): String =
+        JSONObject().apply {
+            put("cmd", "wps_check")
+            put("bssid", bssid)
+            put("channel", channel)
+            put("timeout_ms", timeoutMs)
+        }.toString()
+
+    /**
+     * Yanıt bir "wps_check" sonucuysa döner, değilse null döner.
+     */
+    fun parseWpsCheckResponse(responseJson: String): WpsCheckResult? =
+        try {
+            val data = responseJson.dataObjectOfType("wps_check")
+            data?.let {
+                WpsCheckResult(
+                    bssid = it.optString("bssid"),
+                    wpsEnabled = it.optBoolean("wps_enabled"),
+                )
+            }
+        } catch (e: JSONException) {
+            null
+        }
+
+    /**
+     * Belirtilen (kendi) Wi-Fi ağına katılıp aynı alt ağı taramak için
+     * "net_scan" komutu oluşturur. password boş bırakılırsa açık ağ olarak
+     * denenir. ports boş bırakılırsa ESP32 tarafında yaygın portlar
+     * kullanılır.
+     */
+    fun buildNetScanCommand(
+        ssid: String,
+        password: String = "",
+        ports: List<Int> = emptyList(),
+        timeoutMs: Long = 30_000L,
+    ): String =
+        JSONObject().apply {
+            put("cmd", "net_scan")
+            put("ssid", ssid)
+            put("password", password)
+            if (ports.isNotEmpty()) {
+                put("ports", JSONArray(ports))
+            }
+            put("timeout_ms", timeoutMs)
+        }.toString()
+
+    /**
+     * Yanıt bir "net_scan" sonucuysa döner, değilse null döner.
+     */
+    fun parseNetScanResponse(responseJson: String): NetScanResult? =
+        try {
+            val data = responseJson.dataObjectOfType("net_scan")
+            data?.let {
+                val hosts = it.optJSONArray("hosts")?.let { array ->
+                    (0 until array.length()).map { index ->
+                        val host = array.getJSONObject(index)
+                        val openPorts = host.optJSONArray("open_ports")?.let { portsArray ->
+                            (0 until portsArray.length()).map { i -> portsArray.getInt(i) }
+                        } ?: emptyList()
+                        NetScanHost(ip = host.optString("ip"), openPorts = openPorts)
+                    }
+                } ?: emptyList()
+                NetScanResult(
+                    localIp = it.optString("local_ip"),
+                    hosts = hosts,
+                    timedOut = it.optBoolean("timed_out"),
                 )
             }
         } catch (e: JSONException) {

@@ -64,3 +64,41 @@ data class WifiCaptureChunk(
     val packetCount: Int,
     val chunkBase64: String,
 )
+
+/** ESP32'nin "rogue_ap_scan" yanıtındaki, belirli bir SSID'yi yayınlayan tek bir erişim noktası. */
+data class RogueApEntry(
+    val bssid: String,
+    val rssi: Int,
+    val secure: Boolean,
+    val isKnown: Boolean,
+)
+
+/**
+ * ESP32'nin "rogue_ap_scan" yanıtı: aranan SSID'yi yayınlayan tüm erişim
+ * noktaları. suspicious, ya birden fazla BSSID bulunduğunda ya da
+ * known_bssid verilip onunla eşleşmeyen bir BSSID bulunduğunda true olur.
+ */
+data class RogueApScanResult(
+    val ssid: String,
+    val accessPoints: List<RogueApEntry>,
+    val suspicious: Boolean,
+)
+
+/** ESP32'nin "net_scan" yanıtındaki, açık portu bulunan tek bir canlı cihaz. */
+data class NetScanHost(
+    val ip: String,
+    val openPorts: List<Int>,
+)
+
+/** ESP32'nin "net_scan" yanıtı. timedOut, tarama süresi dolduğunda (kısmi sonuç) true olur. */
+data class NetScanResult(
+    val localIp: String,
+    val hosts: List<NetScanHost>,
+    val timedOut: Boolean,
+)
+
+/** ESP32'nin "wps_check" yanıtı — belirli bir AP'nin beacon'ında WPS bilgi elemanının bulunup bulunmadığı. */
+data class WpsCheckResult(
+    val bssid: String,
+    val wpsEnabled: Boolean,
+)

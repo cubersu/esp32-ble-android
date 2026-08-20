@@ -7,10 +7,13 @@ import com.example.esp32zero.ble.BleConstants
 import com.example.esp32zero.ble.BleDeviceInfo
 import com.example.esp32zero.ble.BleManager
 import com.example.esp32zero.ble.BleProtocol
+import com.example.esp32zero.ble.NetScanResult
+import com.example.esp32zero.ble.RogueApScanResult
 import com.example.esp32zero.ble.SubGhzSignal
 import com.example.esp32zero.ble.WifiCapture
 import com.example.esp32zero.ble.WifiCaptureChunk
 import com.example.esp32zero.ble.WifiNetwork
+import com.example.esp32zero.ble.WpsCheckResult
 import java.util.Base64
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -67,6 +70,18 @@ class BleViewModel(private val bleManager: BleManager) : ViewModel() {
     // yakalamanın geç gelen son parçası) yanlış tamponla karışmaz.
     private val chunkBuffers = mutableMapOf<Long, MutableMap<Int, String>>()
 
+    // Kendi sonuç listesi tutmayan, tek seferlik pentest kontrollerinin
+    // (sahte AP/evil twin tespiti, ağ keşfi, WPS keşif kontrolü) en son
+    // sonucu. Her yeni tarama bir öncekinin üzerine yazar.
+    private val _rogueApResult = MutableStateFlow<RogueApScanResult?>(null)
+    val rogueApResult: StateFlow<RogueApScanResult?> = _rogueApResult.asStateFlow()
+
+    private val _netScanResult = MutableStateFlow<NetScanResult?>(null)
+    val netScanResult: StateFlow<NetScanResult?> = _netScanResult.asStateFlow()
+
+    private val _wpsCheckResult = MutableStateFlow<WpsCheckResult?>(null)
+    val wpsCheckResult: StateFlow<WpsCheckResult?> = _wpsCheckResult.asStateFlow()
+
     init {
         viewModelScope.launch {
             bleManager.observeResponses().collect { json ->
@@ -86,6 +101,15 @@ class BleViewModel(private val bleManager: BleManager) : ViewModel() {
                 }
                 BleProtocol.parseWifiCaptureChunk(json)?.let { chunk ->
                     handleWifiCaptureChunk(chunk)
+                }
+                BleProtocol.parseRogueApScanResponse(json)?.let { result ->
+                    _rogueApResult.value = result
+                }
+                BleProtocol.parseNetScanResponse(json)?.let { result ->
+                    _netScanResult.value = result
+                }
+                BleProtocol.parseWpsCheckResponse(json)?.let { result ->
+                    _wpsCheckResult.value = result
                 }
             }
         }
@@ -222,6 +246,51 @@ class BleViewModel(private val bleManager: BleManager) : ViewModel() {
                 )
             } catch (e: Exception) {
                 _errorMessage.value = e.message ?: "Deauth komutu gönderilemedi"
+            }
+        }
+    }
+
+    /** ssid verilen SSID'yi yayınlayan tüm BSSID'leri tarar; knownBssid isteğe bağlıdır. */
+    fun onScanRogueApClicked(ssid: String, knownBssid: String) {
+        if (connectionState.value != BleConnectionState.CONNECTED) return
+        if (ssid.isBlank()) return
+
+        viewModelScope.launch {
+            try {
+                bleManager.sendCommand(BleProtocol.buildRogueApScanCommand(ssid = ssid, knownBssid = knownBssid))
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "Sahte AP taraması başlatılamadı"
+            }
+        }
+    }
+
+    /** bssid'yi doğrular (BleProtocol.isValidMacAddress); geçersizse komutu göndermeden hata gösterir. */
+    fun onCheckWpsClicked(bssid: String, channel: Int) {
+        if (connectionState.value != BleConnectionState.CONNECTED) return
+        if (!BleProtocol.isValidMacAddress(bssid)) {
+            _errorMessage.value = "Geçersiz MAC adresi (AA:BB:CC:DD:EE:FF biçiminde olmalı)"
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                bleManager.sendCommand(BleProtocol.buildWpsCheckCommand(bssid = bssid, channel = channel))
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "WPS kontrolü başlatılamadı"
+            }
+        }
+    }
+
+    /** ssid (kendi ağın) ve password ile ESP32'yi ağa katılıp aynı alt ağı taramaya yönlendirir. */
+    fun onNetScanClicked(ssid: String, password: String) {
+        if (connectionState.value != BleConnectionState.CONNECTED) return
+        if (ssid.isBlank()) return
+
+        viewModelScope.launch {
+            try {
+                bleManager.sendCommand(BleProtocol.buildNetScanCommand(ssid = ssid, password = password))
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "Ağ taraması başlatılamadı"
             }
         }
     }

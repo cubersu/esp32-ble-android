@@ -265,4 +265,116 @@ class BleProtocolTest {
 
         assertEquals("FF:FF:FF:FF:FF:FF", JSONObject(json).getString("client_mac"))
     }
+
+    @Test
+    fun `buildRogueApScanCommand gecerli json cmd ve ssid icerir, known_bssid bos ise eklenmez`() {
+        val json = BleProtocol.buildRogueApScanCommand(ssid = "EvAgi")
+
+        val parsed = JSONObject(json)
+        assertEquals("rogue_ap_scan", parsed.getString("cmd"))
+        assertEquals("EvAgi", parsed.getString("ssid"))
+        assertFalse(parsed.has("known_bssid"))
+    }
+
+    @Test
+    fun `buildRogueApScanCommand known_bssid verilirse eklenir`() {
+        val json = BleProtocol.buildRogueApScanCommand(ssid = "EvAgi", knownBssid = "AA:BB:CC:DD:EE:FF")
+
+        assertEquals("AA:BB:CC:DD:EE:FF", JSONObject(json).getString("known_bssid"))
+    }
+
+    @Test
+    fun `parseRogueApScanResponse gecerli yanitta sonucu doner`() {
+        val response = """
+            {"status":"ok","data":{"type":"rogue_ap_scan","ssid":"EvAgi","suspicious":true,
+                "access_points":[
+                    {"bssid":"AA:BB:CC:DD:EE:FF","rssi":-40,"secure":true,"is_known":true},
+                    {"bssid":"11:22:33:44:55:66","rssi":-60,"secure":false,"is_known":false}
+                ]}}
+        """.trimIndent()
+
+        val result = BleProtocol.parseRogueApScanResponse(response)
+
+        assertEquals("EvAgi", result?.ssid)
+        assertTrue(result?.suspicious == true)
+        assertEquals(2, result?.accessPoints?.size)
+        assertEquals(RogueApEntry("AA:BB:CC:DD:EE:FF", -40, true, true), result?.accessPoints?.get(0))
+        assertEquals(RogueApEntry("11:22:33:44:55:66", -60, false, false), result?.accessPoints?.get(1))
+    }
+
+    @Test
+    fun `parseRogueApScanResponse wifi_scan yanitinda null doner`() {
+        val response = """{"status":"ok","data":{"type":"wifi_scan","networks":[]}}"""
+
+        assertNull(BleProtocol.parseRogueApScanResponse(response))
+    }
+
+    @Test
+    fun `buildWpsCheckCommand gecerli json cmd bssid kanal ve timeout icerir`() {
+        val json = BleProtocol.buildWpsCheckCommand(bssid = "AA:BB:CC:DD:EE:FF", channel = 6, timeoutMs = 5_000L)
+
+        val parsed = JSONObject(json)
+        assertEquals("wps_check", parsed.getString("cmd"))
+        assertEquals("AA:BB:CC:DD:EE:FF", parsed.getString("bssid"))
+        assertEquals(6, parsed.getInt("channel"))
+        assertEquals(5_000L, parsed.getLong("timeout_ms"))
+    }
+
+    @Test
+    fun `parseWpsCheckResponse gecerli yanitta sonucu doner`() {
+        val response = """{"status":"ok","data":{"type":"wps_check","bssid":"AA:BB:CC:DD:EE:FF","wps_enabled":true}}"""
+
+        val result = BleProtocol.parseWpsCheckResponse(response)
+
+        assertEquals("AA:BB:CC:DD:EE:FF", result?.bssid)
+        assertTrue(result?.wpsEnabled == true)
+    }
+
+    @Test
+    fun `parseWpsCheckResponse wifi_scan yanitinda null doner`() {
+        val response = """{"status":"ok","data":{"type":"wifi_scan","networks":[]}}"""
+
+        assertNull(BleProtocol.parseWpsCheckResponse(response))
+    }
+
+    @Test
+    fun `buildNetScanCommand gecerli json cmd ssid sifre ve portlari icerir`() {
+        val json = BleProtocol.buildNetScanCommand(ssid = "EvAgi", password = "gizli123", ports = listOf(22, 80))
+
+        val parsed = JSONObject(json)
+        assertEquals("net_scan", parsed.getString("cmd"))
+        assertEquals("EvAgi", parsed.getString("ssid"))
+        assertEquals("gizli123", parsed.getString("password"))
+        val portsArray = parsed.getJSONArray("ports")
+        assertEquals(22, portsArray.getInt(0))
+        assertEquals(80, portsArray.getInt(1))
+    }
+
+    @Test
+    fun `buildNetScanCommand port verilmezse ports alani eklenmez`() {
+        val json = BleProtocol.buildNetScanCommand(ssid = "EvAgi")
+
+        assertFalse(JSONObject(json).has("ports"))
+    }
+
+    @Test
+    fun `parseNetScanResponse gecerli yanitta sonucu doner`() {
+        val response = """
+            {"status":"ok","data":{"type":"net_scan","local_ip":"192.168.1.50","timed_out":false,
+                "hosts":[{"ip":"192.168.1.1","open_ports":[80,443]}]}}
+        """.trimIndent()
+
+        val result = BleProtocol.parseNetScanResponse(response)
+
+        assertEquals("192.168.1.50", result?.localIp)
+        assertFalse(result?.timedOut == true)
+        assertEquals(NetScanHost("192.168.1.1", listOf(80, 443)), result?.hosts?.single())
+    }
+
+    @Test
+    fun `parseNetScanResponse wifi_scan yanitinda null doner`() {
+        val response = """{"status":"ok","data":{"type":"wifi_scan","networks":[]}}"""
+
+        assertNull(BleProtocol.parseNetScanResponse(response))
+    }
 }

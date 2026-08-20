@@ -323,4 +323,101 @@ class BleViewModelTest {
 
         assertNull(fakeBleManager.lastSentCommand)
     }
+
+    @Test
+    fun `baglantidayken sahte AP tara tiklaninca rogue_ap_scan komutu yazilir`() = runTest {
+        fakeBleManager.deviceFound = true
+        viewModel.onScanAndConnectClicked()
+
+        viewModel.onScanRogueApClicked(ssid = "EvAgi", knownBssid = "AA:BB:CC:DD:EE:FF")
+
+        assertEquals(
+            BleProtocol.buildRogueApScanCommand(ssid = "EvAgi", knownBssid = "AA:BB:CC:DD:EE:FF"),
+            fakeBleManager.lastSentCommand,
+        )
+    }
+
+    @Test
+    fun `bos ssid ile sahte AP taramasi gonderilmez`() = runTest {
+        fakeBleManager.deviceFound = true
+        viewModel.onScanAndConnectClicked()
+
+        viewModel.onScanRogueApClicked(ssid = "  ", knownBssid = "")
+
+        assertNull(fakeBleManager.lastSentCommand)
+    }
+
+    @Test
+    fun `gelen rogue_ap_scan yaniti sonucu gunceller`() = runTest {
+        fakeBleManager.emitResponse(
+            """{"status":"ok","data":{"type":"rogue_ap_scan","ssid":"EvAgi","suspicious":false,"access_points":[]}}""",
+        )
+
+        assertEquals("EvAgi", viewModel.rogueApResult.value?.ssid)
+    }
+
+    @Test
+    fun `baglantidayken gecerli bssid ile wps kontrolu tiklaninca wps_check komutu yazilir`() = runTest {
+        fakeBleManager.deviceFound = true
+        viewModel.onScanAndConnectClicked()
+
+        viewModel.onCheckWpsClicked(bssid = "AA:BB:CC:DD:EE:FF", channel = 6)
+
+        assertEquals(
+            BleProtocol.buildWpsCheckCommand(bssid = "AA:BB:CC:DD:EE:FF", channel = 6),
+            fakeBleManager.lastSentCommand,
+        )
+    }
+
+    @Test
+    fun `gecersiz bssid ile wps kontrolu komutu gonderilmez ve hata yazilir`() = runTest {
+        fakeBleManager.deviceFound = true
+        viewModel.onScanAndConnectClicked()
+
+        viewModel.onCheckWpsClicked(bssid = "gecersiz", channel = 1)
+
+        assertNull(fakeBleManager.lastSentCommand)
+        assertEquals("Geçersiz MAC adresi (AA:BB:CC:DD:EE:FF biçiminde olmalı)", viewModel.errorMessage.value)
+    }
+
+    @Test
+    fun `gelen wps_check yaniti sonucu gunceller`() = runTest {
+        fakeBleManager.emitResponse(
+            """{"status":"ok","data":{"type":"wps_check","bssid":"AA:BB:CC:DD:EE:FF","wps_enabled":true}}""",
+        )
+
+        assertEquals(true, viewModel.wpsCheckResult.value?.wpsEnabled)
+    }
+
+    @Test
+    fun `baglantidayken ag tara tiklaninca net_scan komutu yazilir`() = runTest {
+        fakeBleManager.deviceFound = true
+        viewModel.onScanAndConnectClicked()
+
+        viewModel.onNetScanClicked(ssid = "EvAgi", password = "gizli123")
+
+        assertEquals(
+            BleProtocol.buildNetScanCommand(ssid = "EvAgi", password = "gizli123"),
+            fakeBleManager.lastSentCommand,
+        )
+    }
+
+    @Test
+    fun `bos ssid ile ag taramasi gonderilmez`() = runTest {
+        fakeBleManager.deviceFound = true
+        viewModel.onScanAndConnectClicked()
+
+        viewModel.onNetScanClicked(ssid = "  ", password = "")
+
+        assertNull(fakeBleManager.lastSentCommand)
+    }
+
+    @Test
+    fun `gelen net_scan yaniti sonucu gunceller`() = runTest {
+        fakeBleManager.emitResponse(
+            """{"status":"ok","data":{"type":"net_scan","local_ip":"192.168.1.50","timed_out":false,"hosts":[]}}""",
+        )
+
+        assertEquals("192.168.1.50", viewModel.netScanResult.value?.localIp)
+    }
 }
