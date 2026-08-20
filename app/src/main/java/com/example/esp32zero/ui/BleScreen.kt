@@ -84,6 +84,8 @@ fun BleScreen(modifier: Modifier = Modifier) {
     var customFrequencyMhzText by remember { mutableStateOf("") }
     var oledTextInput by remember { mutableStateOf("") }
     var selectedWifiChannel by remember { mutableStateOf(1) }
+    var deauthBssidInput by remember { mutableStateOf("") }
+    var deauthClientMacInput by remember { mutableStateOf("") }
     var permissionsGranted by remember { mutableStateOf(PermissionUtils.hasAllBlePermissions(context)) }
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions(),
@@ -214,6 +216,39 @@ fun BleScreen(modifier: Modifier = Modifier) {
                 enabled = connectionState == BleConnectionState.CONNECTED,
             ) {
                 Text("Wi-Fi Paket Yakala")
+            }
+
+            Text(
+                text = "Deauth — SADECE KENDİ AĞIN İÇİN",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+            OutlinedTextField(
+                value = deauthBssidInput,
+                onValueChange = { deauthBssidInput = it },
+                label = { Text("Hedef BSSID (kendi erişim noktan)") },
+                placeholder = { Text("AA:BB:CC:DD:EE:FF") },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
+                value = deauthClientMacInput,
+                onValueChange = { deauthClientMacInput = it },
+                label = { Text("İstemci MAC (boş = tüm istemciler)") },
+                placeholder = { Text("AA:BB:CC:DD:EE:FF") },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Button(
+                onClick = {
+                    viewModel.onSendDeauthClicked(
+                        bssid = deauthBssidInput,
+                        clientMac = deauthClientMacInput,
+                        channel = selectedWifiChannel,
+                    )
+                },
+                enabled = connectionState == BleConnectionState.CONNECTED && deauthBssidInput.isNotBlank(),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+            ) {
+                Text("Deauth Gönder")
             }
 
             Text(text = "OLED Ekrana Yaz", style = MaterialTheme.typography.titleSmall)

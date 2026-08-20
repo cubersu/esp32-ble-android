@@ -227,4 +227,42 @@ class BleProtocolTest {
     fun `parseWifiCaptureChunk bozuk json girdisinde null doner`() {
         assertNull(BleProtocol.parseWifiCaptureChunk("bu gecerli bir json degil"))
     }
+
+    @Test
+    fun `isValidMacAddress gecerli formatta true doner`() {
+        assertTrue(BleProtocol.isValidMacAddress("AA:BB:CC:DD:EE:FF"))
+        assertTrue(BleProtocol.isValidMacAddress("00:11:22:33:44:55"))
+    }
+
+    @Test
+    fun `isValidMacAddress gecersiz formatta false doner`() {
+        assertFalse(BleProtocol.isValidMacAddress("AA:BB:CC:DD:EE"))
+        assertFalse(BleProtocol.isValidMacAddress("AABBCCDDEEFF"))
+        assertFalse(BleProtocol.isValidMacAddress("GG:BB:CC:DD:EE:FF"))
+        assertFalse(BleProtocol.isValidMacAddress(""))
+    }
+
+    @Test
+    fun `buildWifiDeauthCommand gecerli json cmd bssid kanal ve sayi icerir`() {
+        val json = BleProtocol.buildWifiDeauthCommand(
+            bssid = "AA:BB:CC:DD:EE:FF",
+            channel = 6,
+            clientMac = "11:22:33:44:55:66",
+            count = 20,
+        )
+
+        val parsed = JSONObject(json)
+        assertEquals("wifi_deauth", parsed.getString("cmd"))
+        assertEquals("AA:BB:CC:DD:EE:FF", parsed.getString("bssid"))
+        assertEquals("11:22:33:44:55:66", parsed.getString("client_mac"))
+        assertEquals(6, parsed.getInt("channel"))
+        assertEquals(20, parsed.getInt("count"))
+    }
+
+    @Test
+    fun `buildWifiDeauthCommand varsayilan client_mac yayin adresidir`() {
+        val json = BleProtocol.buildWifiDeauthCommand(bssid = "AA:BB:CC:DD:EE:FF", channel = 1)
+
+        assertEquals("FF:FF:FF:FF:FF:FF", JSONObject(json).getString("client_mac"))
+    }
 }

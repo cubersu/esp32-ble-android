@@ -200,6 +200,32 @@ class BleViewModel(private val bleManager: BleManager) : ViewModel() {
         }
     }
 
+    /**
+     * bssid ve clientMac'i doğrular (BleProtocol.isValidMacAddress); geçersizse
+     * komutu hiç göndermeden bir hata mesajı gösterir. clientMac boşsa
+     * BleProtocol.BROADCAST_MAC_ADDRESS'e (BSSID'ye bağlı tüm istemciler)
+     * düşer. SADECE KENDİ AĞINI TEST ETMEK İÇİN.
+     */
+    fun onSendDeauthClicked(bssid: String, clientMac: String, channel: Int) {
+        if (connectionState.value != BleConnectionState.CONNECTED) return
+
+        val targetClientMac = clientMac.ifBlank { BleProtocol.BROADCAST_MAC_ADDRESS }
+        if (!BleProtocol.isValidMacAddress(bssid) || !BleProtocol.isValidMacAddress(targetClientMac)) {
+            _errorMessage.value = "Geçersiz MAC adresi (AA:BB:CC:DD:EE:FF biçiminde olmalı)"
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                bleManager.sendCommand(
+                    BleProtocol.buildWifiDeauthCommand(bssid = bssid, channel = channel, clientMac = targetClientMac),
+                )
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "Deauth komutu gönderilemedi"
+            }
+        }
+    }
+
     fun onSendOledTextClicked(text: String) {
         if (connectionState.value != BleConnectionState.CONNECTED) return
         if (text.isBlank()) return

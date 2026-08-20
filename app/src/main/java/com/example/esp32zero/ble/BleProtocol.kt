@@ -83,6 +83,37 @@ object BleProtocol {
             put("timeout_ms", timeoutMs)
         }.toString()
 
+    /** "AA:BB:CC:DD:EE:FF" biçiminde geçerli bir MAC adresi olup olmadığını kontrol eder. */
+    fun isValidMacAddress(mac: String): Boolean = MAC_ADDRESS_REGEX.matches(mac)
+
+    /** clientMac verilmediğinde "wifi_deauth" komutunun hedeflediği yayın (tüm istemciler) adresi. */
+    const val BROADCAST_MAC_ADDRESS: String = "FF:FF:FF:FF:FF:FF"
+
+    private val MAC_ADDRESS_REGEX = Regex("^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$")
+
+    /**
+     * Belirtilen BSSID'nin (kendi erişim noktan) belirtilen istemciye (veya
+     * clientMac verilmezse BSSID'ye bağlı tüm istemcilere) 802.11
+     * deauthentication çerçeveleri göndermesi için "wifi_deauth" komutu
+     * oluşturur. SADECE KENDİ AĞINI TEST ETMEK İÇİN — bkz. esp32-multitool
+     * deposundaki wifi_deauth.h üstündeki yasal/etik not. bssid ve
+     * clientMac'in geçerli MAC formatında olduğu (isValidMacAddress)
+     * çağıran tarafından önceden doğrulanmış olmalı.
+     */
+    fun buildWifiDeauthCommand(
+        bssid: String,
+        channel: Int,
+        clientMac: String = BROADCAST_MAC_ADDRESS,
+        count: Int = 10,
+    ): String =
+        JSONObject().apply {
+            put("cmd", "wifi_deauth")
+            put("bssid", bssid)
+            put("client_mac", clientMac)
+            put("channel", channel)
+            put("count", count)
+        }.toString()
+
     /**
      * ESP32'ye bağlı OLED ekranda (varsa) serbest bir metin göstermek için
      * "oled_text" komutu oluşturur. ESP32 tarafında OLED şu an yalnızca
